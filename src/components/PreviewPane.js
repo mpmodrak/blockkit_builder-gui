@@ -121,14 +121,14 @@ function SlackBlock({ slack }) {
 function ToolbarButton({ children, onClick, disabled, label, tone = 'default' }) {
   const toneClass = tone === 'danger'
     ? 'hover:bg-[#fdecef] hover:text-[#e01e5a]'
-    : 'hover:bg-[#f6f1e8] hover:text-[#211c16]';
+    : 'hover:bg-[#eef1f8] hover:text-[#040810]';
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`rounded-full px-2.5 py-1 text-xs font-semibold text-[#5e564c] disabled:cursor-not-allowed disabled:opacity-35 ${toneClass}`}
+      className={`px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wide text-[#3d4a63] disabled:cursor-not-allowed disabled:opacity-35 ${toneClass}`}
     >
       {children}
     </button>
@@ -161,20 +161,20 @@ export default function PreviewPane({
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8d6b3f]">Live preview</p>
-            <p className="mt-1 font-serif text-[28px] leading-none tracking-tight text-ink"># announcements</p>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-muted">Live preview</p>
+            <p className="mt-1 text-[28px] font-semibold leading-none tracking-tight text-ink"># announcements</p>
           </div>
           <p className="pb-1 text-sm text-muted" data-testid="preview-count">
             {blocks.length === 1 ? '1 block' : `${blocks.length} blocks`}
           </p>
         </div>
 
-        <article className="rounded-2xl bg-white px-4 py-3 shadow-[0_1px_2px_rgba(29,28,29,0.06),0_18px_40px_rgba(70,44,20,0.08)]">
+        <article className="border border-[#e8e8e8] bg-white px-4 py-3 text-[#1d1c1d]" style={{ colorScheme: 'light' }}>
           <div className="flex gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4A154B] font-serif text-lg text-[#f6efe4]" aria-hidden="true">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#2432ff] font-mono text-sm font-bold text-white" aria-hidden="true">
               N
             </div>
-            <div className="min-w-0 flex-1 font-slack">
+            <div className="min-w-0 flex-1 font-slack text-[#1d1c1d]">
               <div className="flex items-center gap-2">
                 <span className="text-[15px] font-black text-[#1d1c1d]">Northwind</span>
                 <span className="rounded border border-[#e2e2e2] bg-[#f8f8f8] px-1 py-px text-[10px] font-bold tracking-wide text-[#616061]">APP</span>
@@ -196,7 +196,7 @@ export default function PreviewPane({
                     const problem = issues.find((issue) => issue.blockId === block.id && issue.severity === 'error');
                     return (
                       <div key={block.id}>
-                        {dropIndex === index && <div className="mb-2 h-0.5 rounded-full bg-[#4A154B]" data-testid="drop-indicator" />}
+                        {dropIndex === index && <div className="mb-2 h-0.5 bg-[#2432ff]" data-testid="drop-indicator" />}
                         <div
                           role="group"
                           tabIndex={0}
@@ -212,20 +212,20 @@ export default function PreviewPane({
                             }
                           }}
                           onDragOver={(event) => onRowDragOver(event, index)}
-                          className={`rounded-md outline-none ${selected ? 'ring-2 ring-[#4A154B] ring-offset-2 ring-offset-white' : 'hover:bg-[#fafafa]'}`}
+                          className={`outline-none ${selected ? 'ring-2 ring-[#2432ff] ring-offset-2 ring-offset-white' : 'hover:bg-[#fafafa]'}`}
                         >
                           {selected && (
                             <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
-                              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8a8175]">
+                              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#5c6b86]">
                                 {BLOCK_LABELS[block.type]}
                               </span>
-                              <div className="flex items-center rounded-full border border-[#ece7df] bg-white p-0.5 shadow-sm">
+                              <div className="flex items-center border border-[#d5def2] bg-white">
                                 <button
                                   type="button"
                                   draggable
                                   aria-label={`Drag to reorder ${BLOCK_LABELS[block.type]}`}
                                   data-testid="drag-handle"
-                                  className="cursor-grab rounded-full px-2 py-1 text-xs font-semibold text-[#8a8175] active:cursor-grabbing"
+                                  className="cursor-grab px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wide text-[#3d4a63] active:cursor-grabbing"
                                   onClick={(event) => event.stopPropagation()}
                                   onDragStart={(event) => onBlockDragStart(event, index)}
                                   onDragEnd={onBlockDragEnd}
@@ -243,7 +243,7 @@ export default function PreviewPane({
                             {view?.slack ? (
                               <SlackBlock slack={view.slack} />
                             ) : (
-                              <div className="rounded-md border border-dashed border-[#e4c27a] bg-[#fffaf0] px-3 py-2 text-sm text-[#6d5314]" data-testid="omitted-block">
+                              <div className="border border-dashed border-[#2432ff] bg-[#f4f6ff] px-3 py-2 text-sm text-[#2432ff]" data-testid="omitted-block">
                                 {problem?.message || 'This block is not in the Slack payload yet.'}
                               </div>
                             )}
@@ -252,13 +252,13 @@ export default function PreviewPane({
                       </div>
                     );
                   })}
-                  {dropIndex === blocks.length && <div className="h-0.5 rounded-full bg-[#4A154B]" data-testid="drop-indicator" />}
+                  {dropIndex === blocks.length && <div className="h-0.5 bg-[#2432ff]" data-testid="drop-indicator" />}
                 </div>
               )}
             </div>
           </div>
         </article>
-        <p className="mx-auto mt-3 max-w-[640px] text-center text-xs leading-relaxed text-[#8a8175]">
+        <p className="mx-auto mt-3 max-w-[640px] text-center font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
           Preview renders Slack formatting, buttons, and images. Copy the payload when it looks right.
         </p>
       </div>

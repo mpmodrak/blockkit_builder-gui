@@ -33,7 +33,14 @@ test('templates, editing, reorder, and JSON round-trip', async ({ page, context 
 
   await page.locator('[data-block-type="section"]').first().click();
   await expect(page.locator('#section-text')).toContainText('draft goals');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.screenshot({ path: path.join(screenshots, 'editor-workspace.png') });
+
+  await page.getByTestId('theme-light').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.screenshot({ path: path.join(screenshots, 'editor-light.png') });
+  await page.getByTestId('theme-dark').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
   await page.getByTestId('template-product').click();
   await page.getByTestId('confirm-replace').click();

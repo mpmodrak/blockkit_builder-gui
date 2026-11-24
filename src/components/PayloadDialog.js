@@ -10,19 +10,19 @@ export default function PayloadDialog({
   copied,
 }) {
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#211c16]/45 p-4 sm:p-6" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-6" style={{ background: 'var(--overlay)' }} onMouseDown={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="payload-title"
         data-testid="payload-dialog"
-        className="flex h-[min(760px,calc(100vh-32px))] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-[#fbf7f1] shadow-[0_24px_80px_rgba(33,28,22,0.28)]"
+        className="flex h-[min(760px,calc(100vh-32px))] w-full max-w-5xl flex-col overflow-hidden border border-line bg-panel"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8d6b3f]">Export and import</p>
-            <h2 id="payload-title" className="mt-1 font-serif text-[28px] leading-none text-ink">Slack payload</h2>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Export and import</p>
+            <h2 id="payload-title" className="mt-1 text-[28px] font-semibold leading-none text-ink">Slack payload</h2>
           </div>
           <div className="flex items-center gap-2">
             <a
@@ -31,7 +31,7 @@ export default function PayloadDialog({
               rel="noreferrer"
               aria-label="Open in Slack Block Kit Builder"
               data-testid="dialog-open-in-slack"
-              className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3 text-sm font-semibold text-ink hover:border-[#c8ad8a]"
+              className="inline-flex h-9 items-center border border-line bg-panel px-3 text-sm font-semibold text-ink hover:border-accent"
             >
               Open in Slack
             </a>
@@ -39,11 +39,11 @@ export default function PayloadDialog({
               type="button"
               onClick={onCopy}
               data-testid="dialog-copy-json"
-              className="inline-flex h-9 items-center rounded-lg bg-[#4A154B] px-3 text-sm font-semibold text-white hover:bg-[#3d1140]"
+              className="inline-flex h-9 items-center bg-accent px-3 text-sm font-semibold text-accentink hover:brightness-110"
             >
               {copied ? 'Copied' : 'Copy JSON'}
             </button>
-            <button type="button" onClick={onClose} className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-muted hover:text-ink" aria-label="Close payload">
+            <button type="button" onClick={onClose} className="inline-flex h-9 items-center px-3 text-sm font-semibold text-muted hover:text-ink" aria-label="Close payload">
               Close
             </button>
           </div>
@@ -56,7 +56,7 @@ export default function PayloadDialog({
             </div>
             <pre
               data-testid="payload-json"
-              className="min-h-0 min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-[#241c17] p-4 font-mono text-[12.5px] leading-relaxed text-[#f6efe4]"
+              className="min-h-0 min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-words border border-line bg-desk p-4 font-mono text-[12.5px] leading-relaxed text-ink"
             >
               {json}
             </pre>
@@ -69,10 +69,10 @@ export default function PayloadDialog({
               onChange={(event) => onImportText(event.target.value)}
               spellCheck={false}
               placeholder={'{ "blocks": [ { "type": "section", "text": { "type": "mrkdwn", "text": "Hello *team*" } } ] }'}
-              className="min-h-0 flex-1 resize-none rounded-xl border border-line bg-white p-4 font-mono text-[12.5px] leading-relaxed text-ink outline-none focus:border-[#4A154B]"
+              className="min-h-0 flex-1 resize-none border border-line bg-field p-4 font-mono text-[12.5px] leading-relaxed text-ink outline-none focus:border-accent"
             />
             {importError && (
-              <p role="alert" className="mt-2 text-sm text-[#9f1239]" data-testid="import-error">{importError}</p>
+              <p role="alert" className="mt-2 text-sm text-danger" data-testid="import-error">{importError}</p>
             )}
             <div className="mt-3 flex items-center justify-between gap-3">
               <p className="text-xs leading-relaxed text-muted">Paste a payload from Slack. Unsupported blocks are skipped.</p>
@@ -81,7 +81,7 @@ export default function PayloadDialog({
                 data-testid="load-json"
                 onClick={onImport}
                 disabled={!importText.trim()}
-                className="inline-flex h-9 shrink-0 items-center rounded-lg bg-[#211c16] px-3 text-sm font-semibold text-[#f6efe4] disabled:opacity-40"
+                className="inline-flex h-9 shrink-0 items-center bg-accent px-3 text-sm font-semibold text-accentink disabled:opacity-40"
               >
                 Load into editor
               </button>

@@ -2,11 +2,11 @@ import { useEffect, useRef } from 'react';
 import FitImage from './FitImage';
 import { LIMITS, createActionId, isHttpUrl } from '../model/message';
 
-const inputClass = 'w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-[#4A154B]';
+const inputClass = 'w-full border border-line bg-field px-3 py-2 text-sm text-ink outline-none transition focus:border-accent';
 
 function Counter({ value, max }) {
   const length = String(value ?? '').length;
-  const tone = length >= max ? 'text-[#e01e5a]' : length >= max * 0.9 ? 'text-[#8a5a00]' : 'text-muted';
+  const tone = length >= max ? 'text-danger' : length >= max * 0.9 ? 'text-accent' : 'text-muted';
   return <span className={`text-xs tabular-nums ${tone}`}>{length}/{max}</span>;
 }
 
@@ -24,7 +24,7 @@ function Field({ label, htmlFor, counter, hint, children }) {
 }
 
 function choiceClass(active) {
-  return `rounded-md px-2.5 py-1 text-xs font-semibold ${active ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink'}`;
+  return `px-2.5 py-1 text-xs font-semibold ${active ? 'bg-accent text-accentink' : 'text-muted hover:text-ink'}`;
 }
 
 function wrapSelection(value, start, end, before, after, placeholder) {
@@ -66,8 +66,8 @@ export default function Inspector({ block, issues, onChange }) {
   if (!block) {
     return (
       <div className="p-5" data-testid="inspector">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8d6b3f]">Properties</p>
-        <h2 className="mt-2 font-serif text-[28px] leading-none text-ink">Nothing selected</h2>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">Properties</p>
+        <h2 className="mt-2 text-[28px] font-semibold leading-none text-ink">Nothing selected</h2>
         <p className="mt-3 text-sm leading-relaxed text-muted">
           Click a block in the preview to edit it. The form here writes the Slack payload for you.
         </p>
@@ -93,12 +93,12 @@ export default function Inspector({ block, issues, onChange }) {
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="inspector">
       <div className="border-b border-line px-5 py-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8d6b3f]">Properties</p>
-        <h2 className="mt-1 font-serif text-[28px] leading-none text-ink">{BLOCK_TITLES[block.type]}</h2>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">Properties</p>
+        <h2 className="mt-1 text-[28px] font-semibold leading-none text-ink">{BLOCK_TITLES[block.type]}</h2>
       </div>
       <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
         {notes.length > 0 && (
-          <div className="rounded-xl border border-[#ead7a6] bg-[#fff8ea] px-3 py-2 text-sm leading-relaxed text-[#6d5314]" role="status">
+          <div className="border border-accent bg-note px-3 py-2 text-sm leading-relaxed text-noteink" role="status">
             {notes.map((issue) => <p key={issue.message}>{issue.message}</p>)}
           </div>
         )}
@@ -138,7 +138,7 @@ export default function Inspector({ block, issues, onChange }) {
 
         {block.type === 'section' && (
           <>
-            <div className="inline-flex rounded-lg border border-line bg-[#f3eee6] p-0.5">
+            <div className="inline-flex border border-line bg-panel2 p-0.5">
               <button type="button" className={choiceClass(block.textType !== 'plain_text')} onClick={() => update({ textType: 'mrkdwn' })}>Slack formatting</button>
               <button type="button" className={choiceClass(block.textType === 'plain_text')} onClick={() => update({ textType: 'plain_text' })}>Plain text</button>
             </div>
@@ -193,7 +193,7 @@ export default function Inspector({ block, issues, onChange }) {
             </Field>
             <div>
               <p className="mb-1.5 text-sm font-semibold text-ink">Preview</p>
-              <FitImage src={block.imageUrl} alt={block.altText || 'Image preview'} className="max-h-40 w-full rounded-lg bg-[#f4f4f4] object-contain" />
+              <FitImage src={block.imageUrl} alt={block.altText || 'Image preview'} className="max-h-40 w-full bg-panel2 object-contain" />
             </div>
           </>
         )}
@@ -223,7 +223,7 @@ function FormatButton({ children, label, onClick, className = '' }) {
       aria-label={label}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink hover:border-[#c8ad8a] ${className}`}
+      className={`border border-line bg-field px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-wide text-ink hover:border-accent ${className}`}
     >
       {children}
     </button>
@@ -309,7 +309,7 @@ function AccessoryEditor({ block, update }) {
 function ButtonFields({ button, idPrefix, onChange }) {
   const url = button.url || '';
   return (
-    <div className="space-y-3 rounded-xl border border-line bg-white/60 p-3">
+    <div className="space-y-3 border border-line bg-panel2 p-3">
       <Field label="Label" htmlFor={`${idPrefix}-label`} counter={<Counter value={button.label} max={LIMITS.button} />}>
         <input
           id={`${idPrefix}-label`}
@@ -369,7 +369,7 @@ function FieldsEditor({ fields, onChange }) {
           />
           <button
             type="button"
-            className="text-xs font-semibold text-[#8a8175] hover:text-[#e01e5a]"
+            className="text-xs font-semibold text-muted hover:text-danger"
             onClick={() => onChange(fields.filter((_, fieldIndex) => fieldIndex !== index))}
           >
             Remove field
@@ -389,10 +389,10 @@ function ContextEditor({ elements, onChange }) {
       </p>
       {elements.map((element, index) => (
         element.kind === 'image' ? (
-          <div key={index} className="rounded-xl border border-line bg-white px-3 py-2 text-sm">
+          <div key={index} className="border border-line bg-field px-3 py-2 text-sm">
             <p className="font-semibold">Image kept from import</p>
             <p className="text-muted">{element.altText || 'No alt text'}</p>
-            <button type="button" className="mt-1 text-xs font-semibold text-[#8a8175] hover:text-[#e01e5a]" onClick={() => onChange(elements.filter((_, item) => item !== index))}>Remove</button>
+            <button type="button" className="mt-1 text-xs font-semibold text-muted hover:text-danger" onClick={() => onChange(elements.filter((_, item) => item !== index))}>Remove</button>
           </div>
         ) : (
           <Field key={index} label={`Line ${index + 1}`} htmlFor={`context-${index}`} counter={<Counter value={element.text} max={LIMITS.context} />}>
@@ -410,7 +410,7 @@ function ContextEditor({ elements, onChange }) {
             />
             <button
               type="button"
-              className="text-xs font-semibold text-[#8a8175] hover:text-[#e01e5a] disabled:opacity-40"
+              className="text-xs font-semibold text-muted hover:text-danger disabled:opacity-40"
               disabled={textCount <= 1 && elements.length <= 1}
               onClick={() => onChange(elements.filter((_, item) => item !== index))}
             >
@@ -421,7 +421,7 @@ function ContextEditor({ elements, onChange }) {
       ))}
       <button
         type="button"
-        className="text-sm font-semibold text-[#4A154B] disabled:opacity-40"
+        className="text-sm font-semibold text-accent disabled:opacity-40"
         disabled={elements.length >= LIMITS.contextElements}
         onClick={() => onChange([...elements, { kind: 'text', text: 'More detail', textType: 'mrkdwn', emoji: true }])}
       >
@@ -443,7 +443,7 @@ function ActionsEditor({ buttons, onChange }) {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Button {index + 1}</p>
             <button
               type="button"
-              className="text-xs font-semibold text-[#8a8175] hover:text-[#e01e5a] disabled:opacity-40"
+              className="text-xs font-semibold text-muted hover:text-danger disabled:opacity-40"
               disabled={buttons.length <= 1}
               onClick={() => onChange(buttons.filter((_, item) => item !== index))}
             >
@@ -463,7 +463,7 @@ function ActionsEditor({ buttons, onChange }) {
       ))}
       <button
         type="button"
-        className="text-sm font-semibold text-[#4A154B] disabled:opacity-40"
+        className="text-sm font-semibold text-accent disabled:opacity-40"
         disabled={buttons.length >= LIMITS.actions}
         onClick={() => onChange([...buttons, { label: 'New button', style: 'default', url: '', actionId: createActionId(), value: '' }])}
       >

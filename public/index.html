@@ -4,8 +4,15 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#4A154B" />
-    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#040810" />
+    <script>
+      try {
+        var storedTheme = localStorage.getItem('blockkit-theme');
+        document.documentElement.setAttribute('data-theme', storedTheme === 'light' ? 'light' : 'dark');
+      } catch (error) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    </script>
     <meta
       name="description"
       content="Visual Slack Block Kit editor for writing messages without hand-editing JSON."

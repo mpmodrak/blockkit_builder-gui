@@ -57,6 +57,13 @@ export default function BlockKitBuilder() {
   const [importError, setImportError] = useState('');
   const [toast, setToast] = useState('');
   const [copied, setCopied] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('blockkit-theme') === 'light' ? 'light' : 'dark';
+    } catch (error) {
+      return 'dark';
+    }
+  });
   const dropIndexRef = useRef(null);
   const suppressClick = useRef(false);
   const toastTimer = useRef(null);
@@ -76,6 +83,15 @@ export default function BlockKitBuilder() {
   const omitted = compiled.issues.filter((issue) => issue.severity === 'error').length;
 
   useEffect(() => () => clearTimeout(toastTimer.current), []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('blockkit-theme', theme);
+    } catch (error) {
+      // The toggle still works for this visit if storage is blocked.
+    }
+  }, [theme]);
 
   useEffect(() => {
     if (!dialogOpen) return undefined;
@@ -255,27 +271,46 @@ export default function BlockKitBuilder() {
 
   return (
     <div className="flex h-screen min-h-0 min-w-[1180px] flex-col text-ink">
-      <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line/80 px-4">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line px-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4A154B] font-serif text-lg text-[#f6efe4]">B</div>
+          <div className="flex h-9 w-9 items-center justify-center bg-accent font-mono text-sm font-bold text-accentink">B</div>
           <div>
-            <h1 className="font-serif text-[22px] leading-none tracking-tight">Block Kit Builder</h1>
-            <p className="mt-1 text-xs text-muted">Visual messages for Slack</p>
+            <h1 className="text-[22px] font-semibold leading-none tracking-tight">Block Kit Builder</h1>
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Visual messages for Slack</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex border border-line" role="group" aria-label="Color theme">
+            <button
+              type="button"
+              data-testid="theme-light"
+              aria-pressed={theme === 'light'}
+              onClick={() => setTheme('light')}
+              className={`h-9 px-3 font-mono text-[10px] font-bold uppercase tracking-[0.14em] ${theme === 'light' ? 'bg-accent text-accentink' : 'text-muted hover:text-ink'}`}
+            >
+              Light
+            </button>
+            <button
+              type="button"
+              data-testid="theme-dark"
+              aria-pressed={theme === 'dark'}
+              onClick={() => setTheme('dark')}
+              className={`h-9 border-l border-line px-3 font-mono text-[10px] font-bold uppercase tracking-[0.14em] ${theme === 'dark' ? 'bg-accent text-accentink' : 'text-muted hover:text-ink'}`}
+            >
+              Dark
+            </button>
+          </div>
           <span
-            className={`hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold xl:inline-flex ${compiled.valid ? 'bg-[#e7f5ef] text-[#0b6b4a]' : 'bg-[#fdecef] text-[#9f1239]'}`}
+            className={`hidden border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] xl:inline-flex ${compiled.valid ? 'border-line text-muted' : 'border-danger text-danger'}`}
             data-testid="payload-status"
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${compiled.valid ? 'bg-[#0b6b4a]' : 'bg-[#9f1239]'}`} />
             {statusLabel}
           </span>
           <button
             type="button"
             onClick={() => { setDialogOpen(true); setImportError(''); }}
             data-testid="open-import"
-            className="inline-flex h-9 items-center rounded-lg border border-line bg-white/70 px-3 text-sm font-semibold hover:border-[#c8ad8a]"
+            className="inline-flex h-9 items-center border border-line bg-panel px-3 text-sm font-semibold hover:border-accent"
           >
             Import JSON
           </button>
@@ -285,7 +320,7 @@ export default function BlockKitBuilder() {
             rel="noreferrer"
             aria-label="Open in Slack Block Kit Builder"
             data-testid="open-in-slack"
-            className="inline-flex h-9 items-center rounded-lg border border-line bg-white/70 px-3 text-sm font-semibold hover:border-[#c8ad8a]"
+            className="inline-flex h-9 items-center border border-line bg-panel px-3 text-sm font-semibold hover:border-accent"
           >
             Open in Slack
           </a>
@@ -293,7 +328,7 @@ export default function BlockKitBuilder() {
             type="button"
             onClick={onCopy}
             data-testid="copy-json"
-            className="inline-flex h-9 items-center rounded-lg bg-[#4A154B] px-3 text-sm font-semibold text-white hover:bg-[#3d1140]"
+            className="inline-flex h-9 items-center bg-accent px-3 text-sm font-semibold text-accentink hover:brightness-110"
           >
             {copied ? 'Copied' : 'Copy JSON'}
           </button>
@@ -301,10 +336,10 @@ export default function BlockKitBuilder() {
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)_340px] gap-3 p-3" data-testid="stage">
-        <aside aria-label="Block palette" className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-line bg-panel">
+        <aside aria-label="Block palette" className="flex min-h-0 flex-col overflow-hidden border border-line bg-panel">
           <div className="flex-1 space-y-6 overflow-y-auto p-4">
             <div>
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8d6b3f]">Start</h2>
+              <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Start</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted">Pick a template, or add a block and edit it on the right.</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {TEMPLATES.map((template) => (
@@ -313,7 +348,7 @@ export default function BlockKitBuilder() {
                     type="button"
                     data-testid={`template-${template.id}`}
                     onClick={() => requestTemplate(template)}
-                    className={`rounded-xl border px-2.5 py-2 text-left ${pendingTemplate === template.id ? 'border-[#4A154B] bg-white' : 'border-line bg-white/70 hover:border-[#c8ad8a]'}`}
+                    className={`border px-2.5 py-2 text-left ${pendingTemplate === template.id ? 'border-accent bg-panel2' : 'border-line bg-panel hover:border-accent'}`}
                   >
                     <span className="block text-sm font-semibold leading-tight">{template.name}</span>
                     <span className="mt-1 block text-[11px] leading-snug text-muted">{template.description}</span>
@@ -321,18 +356,18 @@ export default function BlockKitBuilder() {
                 ))}
               </div>
               {pendingTemplate && (
-                <div className="mt-3 rounded-xl border border-[#ead7a6] bg-[#fff8ea] p-3">
-                  <p className="text-sm text-[#6d5314]">Replace the message you are editing?</p>
+                <div className="mt-3 border border-accent bg-note p-3 text-noteink">
+                  <p className="text-sm">Replace the message you are editing?</p>
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"
                       data-testid="confirm-replace"
-                      className="rounded-lg bg-[#211c16] px-2.5 py-1.5 text-xs font-semibold text-[#f6efe4]"
+                      className="bg-accent px-2.5 py-1.5 text-xs font-semibold text-accentink"
                       onClick={() => applyTemplate(TEMPLATES.find((template) => template.id === pendingTemplate))}
                     >
                       Replace
                     </button>
-                    <button type="button" className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#6d5314]" onClick={() => setPendingTemplate(null)}>
+                    <button type="button" className="px-2.5 py-1.5 text-xs font-semibold" onClick={() => setPendingTemplate(null)}>
                       Cancel
                     </button>
                   </div>
@@ -341,7 +376,7 @@ export default function BlockKitBuilder() {
             </div>
 
             <div>
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8d6b3f]">Blocks</h2>
+              <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Blocks</h2>
               <div className="mt-3 space-y-2">
                 {CATALOG.map((item) => (
                   <div
@@ -360,7 +395,7 @@ export default function BlockKitBuilder() {
                     }}
                     onDragStart={(event) => onPaletteDragStart(event, item.type)}
                     onDragEnd={onPaletteDragEnd}
-                    className="cursor-grab rounded-xl border border-line bg-white/80 px-3 py-2.5 outline-none hover:border-[#c8ad8a] focus-visible:border-[#4A154B] active:cursor-grabbing"
+                    className="cursor-grab border border-line bg-panel px-3 py-2.5 outline-none hover:border-accent focus-visible:border-accent active:cursor-grabbing"
                   >
                     <span className="block text-sm font-semibold">{item.name}</span>
                     <span className="mt-0.5 block text-xs leading-snug text-muted">{item.description}</span>
@@ -371,7 +406,7 @@ export default function BlockKitBuilder() {
           </div>
         </aside>
 
-        <main aria-label="Slack preview" className="min-h-0 overflow-hidden rounded-2xl border border-line bg-[#e7dccb]">
+        <main aria-label="Slack preview" className="min-h-0 overflow-hidden border border-line bg-panel">
           <PreviewPane
             blocks={blocks}
             views={compiled.views}
@@ -390,8 +425,8 @@ export default function BlockKitBuilder() {
           />
         </main>
 
-        <aside aria-label="Properties" className="min-h-0 overflow-hidden rounded-2xl border border-line bg-panel">
-          <Inspector block={selected} issues={compiled.issues} onChange={updateBlock} />
+        <aside aria-label="Properties" className="min-h-0 overflow-hidden border border-line bg-panel">
+          <Inspector key={theme} block={selected} issues={compiled.issues} onChange={updateBlock} />
         </aside>
       </div>
 
@@ -411,7 +446,7 @@ export default function BlockKitBuilder() {
 
       <div role="status" aria-live="polite" className="pointer-events-none fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
         {toast && (
-          <div data-testid="toast" className="rounded-full bg-[#211c16] px-4 py-2 text-sm font-semibold text-[#f6efe4] shadow-lg">
+          <div data-testid="toast" className="border border-accent bg-accent px-4 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accentink">
             {toast}
           </div>
         )}

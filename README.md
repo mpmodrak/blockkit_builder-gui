@@ -4,7 +4,11 @@ A visual editor for Slack Block Kit messages. Business users can start from a te
 
 The preview speaks Slack's own formatting: bold, italic, strike, code, links, lists, buttons, images, headers, dividers, and context.
 
-![The editor with a team announcement loaded, including the block palette, Slack preview, and properties.](docs/screenshots/editor-workspace.png)
+The chrome follows the [Builtanyway](https://builtanyway.io) studio look: sharp corners, electric indigo, Bricolage Grotesque, and Space Mono. Dark is the default. Use **Light** or **Dark** in the header to switch, and the choice is remembered. The Slack message itself stays on a white card so it still reads as Slack.
+
+![The editor in dark mode, with a team announcement loaded.](docs/screenshots/editor-workspace.png)
+
+![The same announcement in light mode.](docs/screenshots/editor-light.png)
 
 ## What you can do
 
