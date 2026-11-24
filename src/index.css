@@ -1,3 +1,35 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: #211c16;
+  background-color: #efe6d8;
+  background-image:
+    radial-gradient(900px 420px at 0% -10%, rgba(74, 21, 75, 0.06), transparent 55%),
+    radial-gradient(700px 360px at 100% 0%, rgba(0, 122, 90, 0.05), transparent 50%);
+  color-scheme: light;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #ead9c4;
+}
+
+:focus-visible {
+  outline: 2px solid #4A154B;
+  outline-offset: 2px;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #d9cdb8 transparent;
+}

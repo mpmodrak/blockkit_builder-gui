@@ -1,3 +1,58 @@
+# Block Kit Builder
+
+A visual editor for Slack Block Kit messages. Business users can start from a template, arrange real Slack blocks, and copy a payload that Slack will accept — without hand-writing JSON.
+
+The preview speaks Slack's own formatting: bold, italic, strike, code, links, lists, buttons, images, headers, dividers, and context.
+
+![The editor with a team announcement loaded, including the block palette, Slack preview, and properties.](docs/screenshots/editor-workspace.png)
+
+## What you can do
+
+- Start from **Team announcement**, **Product update**, **Incident alert**, or a blank message.
+- Add and edit `header`, `section`, `image`, `divider`, `context`, and `actions` blocks.
+- Format section text (`*bold*`, `_italic_`, `~strike~`, `` `code` ``, links, and lists) or switch that section to plain text.
+- Attach a button or a thumbnail to a section. Style action buttons as default, primary, or danger, and optionally give them a link.
+- Reorder blocks by dragging, or with move up, move down, duplicate, and delete.
+- Watch a live `{ "blocks": [...] }` payload. Editor-only ids are never included.
+- **Copy JSON**, **import** an existing payload, or **open it in Slack's Block Kit Builder**.
+
+![Slack preview beside the properties panel, with a release note and its image selected.](docs/screenshots/preview-and-properties.png)
+
+![Live Block Kit JSON next to the import box.](docs/screenshots/json-export-import.png)
+
+## Supported blocks
+
+| Block | What you edit | What gets exported |
+| --- | --- | --- |
+| Header | Headline, optional heading level | `header` with `plain_text` (150 characters) |
+| Section | Slack formatting or plain text, optional button or thumbnail | `section`, plus a button or image accessory when it is valid |
+| Image | Title, public image URL, alt text, and a preview | `image` when the URL and alt text are valid |
+| Divider | Nothing — it is just a line | `divider` |
+| Context | Up to 10 footer lines | `context` |
+| Actions | Button label, default / primary / danger style, optional URL | `actions` with button elements |
+
+Empty required fields stay out of the payload, and the preview says so, so the JSON you copy stays valid. Button links that are not `http` or `https` are left off rather than breaking the block.
+
+## Quick start
+
+```bash
+npm install
+npm start
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+```bash
+npm test
+npm run build
+npx playwright install chromium
+npm run e2e
+```
+
+`npm test` checks serialization and import. `npm run build` writes the production app to `build/`. `npm run e2e` serves that build and runs the editor in headless Chromium, including the screenshots in `docs/screenshots/`.
+
+## A note from Mike
+
 _This is for the general populus that's like me and absolutely hates using the Slack Block Kit Builder GUI_.
 
 ## Foreward
