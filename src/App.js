@@ -1,457 +1,456 @@
-import React, { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Inspector from './components/Inspector';
+import PayloadDialog from './components/PayloadDialog';
+import PreviewPane from './components/PreviewPane';
+import {
+  LIMITS,
+  builderUrl,
+  compileMessage,
+  createBlock,
+  duplicateBlock,
+  importPayload,
+  moveBlock,
+  readDragPayload,
+  reorder,
+  validateSlackPayload,
+} from './model/message';
+import { TEMPLATES } from './model/templates';
 
-const BlockKitBuilder = () => {
-  // Define key states
+const CATALOG = [
+  { type: 'header', name: 'Header', description: 'A large plain-text headline.' },
+  { type: 'section', name: 'Section', description: 'Body text, plus an optional button or thumbnail.' },
+  { type: 'image', name: 'Image', description: 'A picture with a title and alt text.' },
+  { type: 'divider', name: 'Divider', description: 'A quiet line between ideas.' },
+  { type: 'context', name: 'Context', description: 'Muted footer or metadata.' },
+  { type: 'actions', name: 'Actions', description: 'A row of buttons.' },
+];
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    try {
+      const element = document.createElement('textarea');
+      element.value = text;
+      element.setAttribute('readonly', '');
+      element.style.position = 'fixed';
+      element.style.left = '-9999px';
+      document.body.appendChild(element);
+      element.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(element);
+      return ok;
+    } catch (fallbackError) {
+      return false;
+    }
+  }
+}
+
+export default function BlockKitBuilder() {
   const [blocks, setBlocks] = useState([]);
-  const [jsonOutput, setJsonOutput] = useState('');
-  const [selectedBlockId, setSelectedBlockId] = useState(null);
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dropTargetIndex, setDropTargetIndex] = useState(null);
-
-  // Block types we support (limiting to 3 as requested)
-  const blockTypes = [
-    { 
-      id: 'section', 
-      name: 'Section', 
-      icon: '📝',
-      description: 'A simple text block that can include optional accessory elements' 
-    },
-    { 
-      id: 'image', 
-      name: 'Image', 
-      icon: '🖼️',
-      description: 'A simple image block with a title and alt text'
-    },
-    { 
-      id: 'divider', 
-      name: 'Divider', 
-      icon: '➖',
-      description: 'A divider line to separate blocks'
+  const [selectedId, setSelectedId] = useState(null);
+  const [dropIndex, setDropIndexState] = useState(null);
+  const [pendingTemplate, setPendingTemplate] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState('');
+  const [toast, setToast] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('blockkit-theme') === 'light' ? 'light' : 'dark';
+    } catch (error) {
+      return 'dark';
     }
-  ];
+  });
+  const dropIndexRef = useRef(null);
+  const suppressClick = useRef(false);
+  const toastTimer = useRef(null);
 
-  // Generate a unique ID for new blocks
-  const generateId = () => `block-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const compiled = useMemo(() => {
+    const result = compileMessage(blocks);
+    const json = JSON.stringify(result.payload, null, 2);
+    return {
+      ...result,
+      json,
+      url: builderUrl(result.payload),
+      valid: validateSlackPayload(result.payload).length === 0,
+    };
+  }, [blocks]);
 
-  // Create a new block of the given type
-  const createBlock = (type) => {
-    const id = generateId();
-    
-    switch (type) {
-      case 'section':
-        return {
-          id,
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: 'This is a section block with text.'
-          }
-        };
-      case 'image':
-        return {
-          id,
-          type: 'image',
-          title: {
-            type: 'plain_text',
-            text: 'Image Title'
-          },
-          image_url: 'https://api.slack.com/img/blocks/bkb_template_images/palmtree.png',
-          alt_text: 'A palm tree'
-        };
-      case 'divider':
-        return {
-          id,
-          type: 'divider'
-        };
-      default:
-        return null;
+  const selected = blocks.find((block) => block.id === selectedId) || null;
+  const omitted = compiled.issues.filter((issue) => issue.severity === 'error').length;
+
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('blockkit-theme', theme);
+    } catch (error) {
+      // The toggle still works for this visit if storage is blocked.
     }
-  };
+  }, [theme]);
 
-  // Handle drag start from the component palette
-  const handleDragStart = (e, blockType) => {
-    e.dataTransfer.setData('blockType', blockType);
-    setDraggedItem({ type: 'new', blockType });
-  };
-
-  // Handle drag start for existing blocks (for reordering)
-  const handleBlockDragStart = (e, index) => {
-    e.dataTransfer.setData('blockIndex', index.toString());
-    setDraggedItem({ type: 'existing', blockIndex: index });
-  };
-
-  // Handle drag over
-  const handleDragOver = (e, index) => {
-    e.preventDefault();
-    setDropTargetIndex(index);
-  };
-
-  // Handle drop from palette or reordering
-  const handleDrop = (e) => {
-    e.preventDefault();
-    
-    // Handle dropping a new block from the palette
-    const blockType = e.dataTransfer.getData('blockType');
-    if (blockType) {
-      const newBlock = createBlock(blockType);
-      const updatedBlocks = [...blocks];
-      
-      if (dropTargetIndex !== null) {
-        updatedBlocks.splice(dropTargetIndex, 0, newBlock);
-      } else {
-        updatedBlocks.push(newBlock);
-      }
-      
-      setBlocks(updatedBlocks);
-      setSelectedBlockId(newBlock.id);
+  useEffect(() => {
+    if (!dialogOpen) return undefined;
+    function onKey(event) {
+      if (event.key === 'Escape') setDialogOpen(false);
     }
-    
-    // Handle reordering existing blocks
-    const blockIndex = e.dataTransfer.getData('blockIndex');
-    if (blockIndex && dropTargetIndex !== null) {
-      const fromIndex = parseInt(blockIndex);
-      const toIndex = dropTargetIndex > fromIndex ? dropTargetIndex - 1 : dropTargetIndex;
-      
-      if (fromIndex !== toIndex) {
-        const updatedBlocks = [...blocks];
-        const [movedBlock] = updatedBlocks.splice(fromIndex, 1);
-        updatedBlocks.splice(toIndex, 0, movedBlock);
-        setBlocks(updatedBlocks);
-      }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dialogOpen]);
+
+  function notify(message) {
+    setToast(message);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(''), 2400);
+  }
+
+  function setDropIndex(value) {
+    dropIndexRef.current = value;
+    setDropIndexState(value);
+  }
+
+  function clearDrag() {
+    setDropIndex(null);
+  }
+
+  function selectAndReveal(id) {
+    setSelectedId(id);
+    window.requestAnimationFrame(() => {
+      document.querySelector(`[data-block-id="${id}"]`)?.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  function addBlock(type, index = blocks.length) {
+    if (blocks.length >= LIMITS.blocks) {
+      notify('Slack messages stop at 50 blocks.');
+      return;
     }
-    
-    // Reset states
-    setDraggedItem(null);
-    setDropTargetIndex(null);
-  };
+    const block = createBlock(type);
+    if (!block) return;
+    const next = blocks.slice();
+    next.splice(Math.max(0, Math.min(index, next.length)), 0, block);
+    setBlocks(next);
+    selectAndReveal(block.id);
+  }
 
-  // Handle dropping on empty canvas
-  const handleCanvasDrop = (e) => {
-    e.preventDefault();
-    
-    const blockType = e.dataTransfer.getData('blockType');
-    if (blockType) {
-      const newBlock = createBlock(blockType);
-      setBlocks([...blocks, newBlock]);
-      setSelectedBlockId(newBlock.id);
+  function applyTemplate(template) {
+    const next = template.build();
+    setBlocks(next);
+    setSelectedId(next[0]?.id || null);
+    setPendingTemplate(null);
+  }
+
+  function requestTemplate(template) {
+    if (blocks.length === 0) {
+      applyTemplate(template);
+      return;
     }
-    
-    setDraggedItem(null);
-    setDropTargetIndex(null);
-  };
+    setPendingTemplate(template.id);
+  }
 
-  // Update properties of a block
-  const updateBlockProperties = (id, updatedProps) => {
-    const updatedBlocks = blocks.map(block => 
-      block.id === id ? { ...block, ...updatedProps } : block
-    );
-    setBlocks(updatedBlocks);
-  };
+  function updateBlock(next) {
+    setBlocks((current) => current.map((block) => (block.id === next.id ? next : block)));
+  }
 
-  // Delete a block
-  const deleteBlock = (id) => {
-    setBlocks(blocks.filter(block => block.id !== id));
-    if (selectedBlockId === id) {
-      setSelectedBlockId(null);
+  function deleteBlock(id) {
+    const index = blocks.findIndex((block) => block.id === id);
+    const next = blocks.filter((block) => block.id !== id);
+    setBlocks(next);
+    if (selectedId === id) {
+      const neighbor = next[Math.min(index, next.length - 1)];
+      setSelectedId(neighbor?.id || null);
     }
-  };
+  }
 
-  // Generate JSON output
-  const generateJson = () => {
-    // Create a clean version without internal IDs
-    const cleanBlocks = blocks.map(({ id, ...block }) => block);
-    const json = JSON.stringify(cleanBlocks, null, 2);
-    setJsonOutput(json);
-  };
-
-  // Copy JSON to clipboard
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(jsonOutput);
-    alert('JSON copied to clipboard!');
-  };
-
-  // Properties panel for the selected block
-  const PropertiesPanel = () => {
-    const selectedBlock = blocks.find(block => block.id === selectedBlockId);
-    
-    if (!selectedBlock) {
-      return (
-        <div className="text-gray-500 italic p-4">
-          Select a block to edit its properties
-        </div>
-      );
+  function duplicateAt(index) {
+    if (blocks.length >= LIMITS.blocks) {
+      notify('Slack messages stop at 50 blocks.');
+      return;
     }
-    
-    switch (selectedBlock.type) {
-      case 'section':
-        return (
-          <div className="space-y-4 p-4">
-            <h3 className="font-medium">Section Properties</h3>
-            <div>
-              <label className="block text-sm font-medium mb-1">Text</label>
-              <textarea
-                className="w-full p-2 border rounded"
-                rows={4}
-                value={selectedBlock.text?.text || ''}
-                onChange={(e) => updateBlockProperties(selectedBlock.id, {
-                  text: { ...selectedBlock.text, text: e.target.value }
-                })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Text Type</label>
-              <select
-                className="w-full p-2 border rounded"
-                value={selectedBlock.text?.type || 'mrkdwn'}
-                onChange={(e) => updateBlockProperties(selectedBlock.id, {
-                  text: { ...selectedBlock.text, type: e.target.value }
-                })}
-              >
-                <option value="mrkdwn">Markdown</option>
-                <option value="plain_text">Plain Text</option>
-              </select>
-            </div>
-          </div>
-        );
-      
-      case 'image':
-        return (
-          <div className="space-y-4 p-4">
-            <h3 className="font-medium">Image Properties</h3>
-            <div>
-              <label className="block text-sm font-medium mb-1">Title</label>
-              <input
-                type="text"
-                className="w-full p-2 border rounded"
-                value={selectedBlock.title?.text || ''}
-                onChange={(e) => updateBlockProperties(selectedBlock.id, {
-                  title: { type: 'plain_text', text: e.target.value }
-                })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Image URL</label>
-              <input
-                type="text"
-                className="w-full p-2 border rounded"
-                value={selectedBlock.image_url || ''}
-                onChange={(e) => updateBlockProperties(selectedBlock.id, {
-                  image_url: e.target.value
-                })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Alt Text</label>
-              <input
-                type="text"
-                className="w-full p-2 border rounded"
-                value={selectedBlock.alt_text || ''}
-                onChange={(e) => updateBlockProperties(selectedBlock.id, {
-                  alt_text: e.target.value
-                })}
-              />
-            </div>
-          </div>
-        );
-      
-      case 'divider':
-        return (
-          <div className="space-y-4 p-4">
-            <h3 className="font-medium">Divider Properties</h3>
-            <p className="text-gray-500 italic">
-              Dividers have no editable properties
-            </p>
-          </div>
-        );
-      
-      default:
-        return null;
-    }
-  };
+    const copy = duplicateBlock(blocks[index]);
+    const next = blocks.slice();
+    next.splice(index + 1, 0, copy);
+    setBlocks(next);
+    selectAndReveal(copy.id);
+  }
 
-  // Render a preview of a block
-  const BlockPreview = ({ block }) => {
-    switch (block.type) {
-      case 'section':
-        return (
-          <div className="p-3 border-l-4 border-blue-500">
-            <div className="text-sm whitespace-pre-wrap">
-              {block.text?.text || 'Empty section'}
-            </div>
-          </div>
-        );
-      
-      case 'image':
-        return (
-          <div className="p-3 border-l-4 border-green-500">
-            <div className="font-medium text-sm mb-1">
-              {block.title?.text || 'Image'}
-            </div>
-            <div className="bg-gray-100 h-20 flex items-center justify-center text-sm text-gray-500">
-              <span>[Image: {block.alt_text || 'No alt text'}]</span>
-            </div>
-          </div>
-        );
-      
-      case 'divider':
-        return (
-          <div className="py-2 border-l-4 border-gray-500">
-            <div className="border-t border-gray-300"></div>
-          </div>
-        );
-      
-      default:
-        return null;
+  function onPaletteDragStart(event, type) {
+    event.dataTransfer.setData('text/plain', `new:${type}`);
+    event.dataTransfer.effectAllowed = 'copy';
+    suppressClick.current = true;
+  }
+
+  function onPaletteDragEnd() {
+    window.setTimeout(() => {
+      suppressClick.current = false;
+    }, 0);
+    clearDrag();
+  }
+
+  function onPaletteClick(type) {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
     }
-  };
+    addBlock(type);
+  }
+
+  function onBlockDragStart(event, index) {
+    event.dataTransfer.setData('text/plain', `move:${index}`);
+    event.dataTransfer.effectAllowed = 'move';
+    event.stopPropagation();
+  }
+
+  function onRowDragOver(event, index) {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const next = event.clientY < rect.top + rect.height / 2 ? index : index + 1;
+    if (dropIndexRef.current !== next) setDropIndex(next);
+  }
+
+  function onCanvasDragOver(event) {
+    event.preventDefault();
+    if (dropIndexRef.current === null) setDropIndex(blocks.length);
+  }
+
+  function onDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const drag = readDragPayload(event.dataTransfer.getData('text/plain'));
+    const index = dropIndexRef.current === null ? blocks.length : dropIndexRef.current;
+    clearDrag();
+    if (!drag) return;
+    if (drag.kind === 'new') {
+      addBlock(drag.type, index);
+      return;
+    }
+    setBlocks(reorder(blocks, drag.index, index));
+  }
+
+  async function onCopy() {
+    const ok = await copyText(compiled.json);
+    if (!ok) {
+      notify('Could not copy. Select the payload and copy it manually.');
+      return;
+    }
+    setCopied(true);
+    notify('Copied JSON to the clipboard.');
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => {
+      setCopied(false);
+      setToast('');
+    }, 2000);
+  }
+
+  function onImport() {
+    const result = importPayload(importText);
+    if (!result.ok) {
+      setImportError(result.error);
+      return;
+    }
+    setImportError('');
+    setBlocks(result.blocks);
+    setSelectedId(result.blocks[0]?.id || null);
+    setDialogOpen(false);
+    const notes = [];
+    if (result.skipped.length) notes.push(`Skipped ${result.skipped.join(', ')}.`);
+    if (result.warnings.length) notes.push(result.warnings[0]);
+    notify(notes.length ? `Loaded ${result.blocks.length} blocks. ${notes.join(' ')}` : `Loaded ${result.blocks.length} blocks.`);
+  }
+
+  const statusLabel = !compiled.valid
+    ? 'Payload needs a fix'
+    : omitted
+      ? `Valid payload · ${omitted} left out`
+      : 'Valid payload';
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-purple-700 text-white p-4">
-        <h1 className="text-xl font-bold">Slack Block Kit Builder</h1>
-      </header>
-      
-      {/* Main content area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Component palette */}
-        <div className="w-64 bg-white border-r p-4 overflow-y-auto">
-          <h2 className="font-bold mb-3">Block Types</h2>
-          <div className="space-y-2">
-            {blockTypes.map(blockType => (
-              <div
-                key={blockType.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, blockType.id)}
-                className="p-3 bg-gray-100 rounded border cursor-grab hover:bg-blue-50 transition-colors"
-                onClick={() => {
-                  const newBlock = createBlock(blockType.id);
-                  setBlocks([...blocks, newBlock]);
-                  setSelectedBlockId(newBlock.id);
-                }}
-              >
-                <div className="flex items-center">
-                  <span className="text-lg mr-2">{blockType.icon}</span>
-                  <span className="font-medium">{blockType.name}</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">{blockType.description}</p>
-              </div>
-            ))}
+    <div className="flex h-screen min-h-0 min-w-[1180px] flex-col text-ink">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line px-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center bg-accent font-mono text-sm font-bold text-accentink">B</div>
+          <div>
+            <h1 className="text-[22px] font-semibold leading-none tracking-tight">Block Kit Builder</h1>
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Visual messages for Slack</p>
           </div>
         </div>
-        
-        {/* Canvas and properties split view */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Canvas */}
-          <div 
-            className="flex-1 p-6 overflow-y-auto"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleCanvasDrop}
+        <div className="flex items-center gap-2">
+          <div className="flex border border-line" role="group" aria-label="Color theme">
+            <button
+              type="button"
+              data-testid="theme-light"
+              aria-pressed={theme === 'light'}
+              onClick={() => setTheme('light')}
+              className={`h-9 px-3 font-mono text-[10px] font-bold uppercase tracking-[0.14em] ${theme === 'light' ? 'bg-accent text-accentink' : 'text-muted hover:text-ink'}`}
+            >
+              Light
+            </button>
+            <button
+              type="button"
+              data-testid="theme-dark"
+              aria-pressed={theme === 'dark'}
+              onClick={() => setTheme('dark')}
+              className={`h-9 border-l border-line px-3 font-mono text-[10px] font-bold uppercase tracking-[0.14em] ${theme === 'dark' ? 'bg-accent text-accentink' : 'text-muted hover:text-ink'}`}
+            >
+              Dark
+            </button>
+          </div>
+          <span
+            className={`hidden border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] xl:inline-flex ${compiled.valid ? 'border-line text-muted' : 'border-danger text-danger'}`}
+            data-testid="payload-status"
           >
-            <div className="bg-white rounded-lg shadow p-6 min-h-full">
-              <h2 className="font-bold mb-4">Block Canvas</h2>
-              
-              {blocks.length === 0 ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 flex items-center justify-center text-gray-400">
-                  Drag blocks here or click on a block type to add
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {blocks.map((block, index) => (
-                    <React.Fragment key={block.id}>
-                      {/* Drop indicator */}
-                      {dropTargetIndex === index && (
-                        <div className="h-1 bg-purple-500 rounded-full"></div>
-                      )}
-                      
-                      {/* Block item */}
-                      <div
-                        className={`border rounded-md ${selectedBlockId === block.id ? 'border-purple-500 ring-2 ring-purple-100' : 'border-gray-200 hover:border-gray-300'}`}
-                        onClick={() => setSelectedBlockId(block.id)}
-                        draggable
-                        onDragStart={(e) => handleBlockDragStart(e, index)}
-                        onDragOver={(e) => handleDragOver(e, index)}
-                        onDrop={handleDrop}
-                      >
-                        <div className="flex justify-between items-center p-2 bg-gray-50 border-b">
-                          <div className="flex items-center">
-                            <span className="text-gray-400 cursor-move mr-2">⋮⋮</span>
-                            <span className="font-medium text-sm">{blockTypes.find(t => t.id === block.type)?.name || block.type}</span>
-                          </div>
-                          <button
-                            className="text-red-500 hover:text-red-700 text-sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteBlock(block.id);
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        
-                        <BlockPreview block={block} />
-                      </div>
-                      
-                      {/* Last drop indicator */}
-                      {index === blocks.length - 1 && dropTargetIndex === blocks.length && (
-                        <div className="h-1 bg-purple-500 rounded-full"></div>
-                      )}
-                    </React.Fragment>
-                  ))}
+            {statusLabel}
+          </span>
+          <button
+            type="button"
+            onClick={() => { setDialogOpen(true); setImportError(''); }}
+            data-testid="open-import"
+            className="inline-flex h-9 items-center border border-line bg-panel px-3 text-sm font-semibold hover:border-accent"
+          >
+            Import JSON
+          </button>
+          <a
+            href={compiled.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open in Slack Block Kit Builder"
+            data-testid="open-in-slack"
+            className="inline-flex h-9 items-center border border-line bg-panel px-3 text-sm font-semibold hover:border-accent"
+          >
+            Open in Slack
+          </a>
+          <button
+            type="button"
+            onClick={onCopy}
+            data-testid="copy-json"
+            className="inline-flex h-9 items-center bg-accent px-3 text-sm font-semibold text-accentink hover:brightness-110"
+          >
+            {copied ? 'Copied' : 'Copy JSON'}
+          </button>
+        </div>
+      </header>
+
+      <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)_340px] gap-3 p-3" data-testid="stage">
+        <aside aria-label="Block palette" className="flex min-h-0 flex-col overflow-hidden border border-line bg-panel">
+          <div className="flex-1 space-y-6 overflow-y-auto p-4">
+            <div>
+              <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Start</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">Pick a template, or add a block and edit it on the right.</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    data-testid={`template-${template.id}`}
+                    onClick={() => requestTemplate(template)}
+                    className={`border px-2.5 py-2 text-left ${pendingTemplate === template.id ? 'border-accent bg-panel2' : 'border-line bg-panel hover:border-accent'}`}
+                  >
+                    <span className="block text-sm font-semibold leading-tight">{template.name}</span>
+                    <span className="mt-1 block text-[11px] leading-snug text-muted">{template.description}</span>
+                  </button>
+                ))}
+              </div>
+              {pendingTemplate && (
+                <div className="mt-3 border border-accent bg-note p-3 text-noteink">
+                  <p className="text-sm">Replace the message you are editing?</p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      data-testid="confirm-replace"
+                      className="bg-accent px-2.5 py-1.5 text-xs font-semibold text-accentink"
+                      onClick={() => applyTemplate(TEMPLATES.find((template) => template.id === pendingTemplate))}
+                    >
+                      Replace
+                    </button>
+                    <button type="button" className="px-2.5 py-1.5 text-xs font-semibold" onClick={() => setPendingTemplate(null)}>
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-          
-          {/* Properties panel */}
-          <div className="w-72 bg-white border-l overflow-y-auto">
-            <div className="p-4 border-b bg-gray-50">
-              <h2 className="font-bold">Properties</h2>
+
+            <div>
+              <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Blocks</h2>
+              <div className="mt-3 space-y-2">
+                {CATALOG.map((item) => (
+                  <div
+                    key={item.type}
+                    role="button"
+                    tabIndex={0}
+                    draggable
+                    data-testid={`palette-${item.type}`}
+                    aria-label={`Add ${item.name} block`}
+                    onClick={() => onPaletteClick(item.type)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        addBlock(item.type);
+                      }
+                    }}
+                    onDragStart={(event) => onPaletteDragStart(event, item.type)}
+                    onDragEnd={onPaletteDragEnd}
+                    className="cursor-grab border border-line bg-panel px-3 py-2.5 outline-none hover:border-accent focus-visible:border-accent active:cursor-grabbing"
+                  >
+                    <span className="block text-sm font-semibold">{item.name}</span>
+                    <span className="mt-0.5 block text-xs leading-snug text-muted">{item.description}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            
-            <PropertiesPanel />
           </div>
-        </div>
+        </aside>
+
+        <main aria-label="Slack preview" className="min-h-0 overflow-hidden border border-line bg-panel">
+          <PreviewPane
+            blocks={blocks}
+            views={compiled.views}
+            issues={compiled.issues}
+            selectedId={selectedId}
+            dropIndex={dropIndex}
+            onSelect={setSelectedId}
+            onMove={(index, direction) => setBlocks(moveBlock(blocks, index, direction))}
+            onDuplicate={duplicateAt}
+            onDelete={deleteBlock}
+            onBlockDragStart={onBlockDragStart}
+            onBlockDragEnd={clearDrag}
+            onRowDragOver={onRowDragOver}
+            onCanvasDragOver={onCanvasDragOver}
+            onDrop={onDrop}
+          />
+        </main>
+
+        <aside aria-label="Properties" className="min-h-0 overflow-hidden border border-line bg-panel">
+          <Inspector key={theme} block={selected} issues={compiled.issues} onChange={updateBlock} />
+        </aside>
       </div>
-      
-      {/* Footer */}
-      <div className="bg-white border-t p-4 flex justify-between items-center">
-        <div>
-          <span className="text-sm text-gray-500">
-            {blocks.length} {blocks.length === 1 ? 'block' : 'blocks'}
-          </span>
-        </div>
-        
-        <div className="flex space-x-3">
-          <button
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
-            onClick={generateJson}
-          >
-            Generate JSON
-          </button>
-          
-          <button
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded flex items-center"
-            onClick={copyToClipboard}
-            disabled={!jsonOutput}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
-              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
-            </svg>
-            Copy JSON
-          </button>
-        </div>
-      </div>
-      
-      {/* JSON output panel (collapsible) */}
-      {jsonOutput && (
-        <div className="bg-gray-800 text-white p-4 overflow-x-auto">
-          <pre className="text-sm">{jsonOutput}</pre>
-        </div>
+
+      {dialogOpen && (
+        <PayloadDialog
+          json={compiled.json}
+          builder={compiled.url}
+          importText={importText}
+          importError={importError}
+          onImportText={(value) => { setImportText(value); setImportError(''); }}
+          onImport={onImport}
+          onCopy={onCopy}
+          onClose={() => setDialogOpen(false)}
+          copied={copied}
+        />
       )}
+
+      <div role="status" aria-live="polite" className="pointer-events-none fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
+        {toast && (
+          <div data-testid="toast" className="border border-accent bg-accent px-4 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accentink">
+            {toast}
+          </div>
+        )}
+      </div>
     </div>
   );
-};
-
-export default BlockKitBuilder;
+}
